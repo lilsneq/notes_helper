@@ -1,15 +1,35 @@
-# ЗПРОСЫ НА ПОЛУЧЕНИЕ ОТВЕТА БЕЗ ИЗМЕНЕНИЙ В БД
-
+# ЗПРОСЫ НА ПОЛУЧЕНИЕ И ТВЕТЫ В БД
+from urllib.parse import uses_relative
 
 # ИМПОРТЫ
 import asyncpg
 import logging
 import sys
+
+from pydantic import with_config
+
 from database import connection
 
 
 
 class CreateRequest:
+
+    @staticmethod
+    async def add_notes_table(username_id:int, text:str) -> None:
+        """ЗАПРОС НА ДОБПАВЛЕНИЕ ТЕКСТА В БД"""
+
+        try:
+            async with connection.db_pool.acquire() as conn:
+                query = """
+                    INSERT INTO public.notes_tg_bot(user_id, note_text)
+                    VALUES($1, $2)
+                """
+                await conn.execute(query, username_id, text)
+                print('ЗАПРОС В БД УСПЕШНО ОТПРАВЛЕН ЗАМЕТКИ ОБНОВЛЕННЫ')
+
+        except Exception as e:
+            logging.error(f'ОШИБКА ПРИ ДОБАВЛЕНИЕ ЗАМЕТКИ {e}', exc_info=True)
+
 
     @staticmethod
     async def create_table():
@@ -18,15 +38,27 @@ class CreateRequest:
         try:
             async with connection.db_pool.acquire() as conn:
                 query = """
-                    CREATE TABLE IF NOT EXISTS public.notes_tg_bot(
+                    CREATE TABLE IF NOT EXISTS public.user_tg_bot(
                         username_id BIGINT PRIMARY KEY,
                         notes_id VARCHAR(255) NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """
-                await conn.execute(query)
-                print("ТАБЛИЦА УСПЕШНО СОЗДАНА")
 
+                query_notes = """
+                    CREATE TABLE IF NOT EXISTS public.notes_tg_bot(
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        note_text TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES public.user_tg_bot(username_id) ON DELETE CASCADE
+                    );
+                """
+
+                await conn.execute(query)
+                print("ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ УСПЕШНО СОЗДАНА ИЛИ УЖЕ ЕСТЬ")
+                await conn.execute(query_notes)
+                print("ТАБЛИЦА БЛОКТОНОВ УСПЕШНО СОЗДАНА ИЛИ УЖЕ ЕСТЬ")
 
         except Exception as e:
             logging.error(f'ОШИБКА СОЗДАНИЯ ТАБЛИЦЫ {e}', exc_info=True)
@@ -39,19 +71,36 @@ class CreateRequest:
         try:
             async with connection.db_pool.acquire() as conn:
                 query = """
-                    INSERT INTO public.notes_tg_bot(username_id)
+                    INSERT INTO public.user_tg_bot(username_id)
                     VALUES($1)
                     ON CONFLICT (username_id) DO NOTHING;
                 """
 
                 await conn.execute(query, username_id, )
+                print('ПОЛЬЗОВАТЕЛЬ ДОБАВЛЕН В БАЗУ ДАННЫХ ИЛИ УЖЕ ЕСТЬ')
 
         except Exception as e:
             logging.error(f'ОШИБКА ДОБАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯ В ТАБЛИЦУ {e}', exc_info=True)
 
 
+    @staticmethod
+    async def get_notes(username_id):
+        """ЗАПРОС НА ПРОЧТЕНИЕ ЗАМЕТКИ"""
 
+        try:
+            async with connection.db_pool.acquire() as conn:
+                query = """
+                    SELECT note_text
+                    FROM public.notes_tg_bot  
+                    WHERE user_id = $1
+                    ORDER BY created_at;  
+                """
 
+                rows = await conn.fetch(query, username_id)
+                return [row['note_text'] for row in rows]
+
+        except Exception as e:
+            logging.error(f'ОШИБКА ЗАПРОСА НА ПРОЧТЕНИЕ {e}', exc_info=True)
 
 
 
