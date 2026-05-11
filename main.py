@@ -1,10 +1,12 @@
 # main файл для запуска бота
-import asyncio
+
 
 # Импорты
+
 import logging
 import sys
 import os
+import asyncio
 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
@@ -16,12 +18,16 @@ from handlers.create_notes import router as create_notes_router
 from handlers.show_notes import router as show_notes_router
 from handlers.settings_notes import router as settings_notes_router
 
+
 from database.connection import conn_bd_pool, close_bd_pool
 from database.requests import CreateRequest
 
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 
 load_dotenv()
+
 
 
 async def main() -> None:
@@ -37,10 +43,7 @@ async def main() -> None:
     print('ПУЛ ПОДКЛЮЧЕНИЙ К PostgreSQL ИНИЦИАЛИЗИРОВАН')
     await CreateRequest.create_table()
 
-
-    dp.include_routers(
-    start_router,show_notes_router,
-                create_notes_router, settings_notes_router)
+    dp.include_routers(start_router, create_notes_router, show_notes_router, settings_notes_router)
 
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
@@ -50,6 +53,12 @@ async def main() -> None:
     finally:
         await close_bd_pool()
         print('Бот успешно завершил работу')
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

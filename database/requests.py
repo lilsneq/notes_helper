@@ -37,7 +37,7 @@ class CreateRequest:
 
         try:
             async with connection.db_pool.acquire() as conn:
-                query = """
+                query_user = """
                     CREATE TABLE IF NOT EXISTS public.user_tg_bot(
                         username_id BIGINT PRIMARY KEY,
                         notes_id VARCHAR(255) NULL,
@@ -55,10 +55,26 @@ class CreateRequest:
                     );
                 """
 
-                await conn.execute(query)
+                query_notion = """
+                    CREATE TABLE IF NOT EXISTS public.notion_tg_bot(
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        note_id INTEGER NOT NULL,
+                        remind_at TIMESTAMP NOT NULL,
+                        
+                        FOREIGN KEY (user_id) REFERENCES  public.user_tg_bot(username_id) ON DELETE CASCADE,
+                        FOREIGN KEY (note_id) REFERENCES  public.notes_tg_bot(id) ON DELETE CASCADE
+                    );
+                """
+
+
+                await conn.execute(query_user)
                 print("ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ УСПЕШНО СОЗДАНА ИЛИ УЖЕ ЕСТЬ")
                 await conn.execute(query_notes)
                 print("ТАБЛИЦА БЛОКТОНОВ УСПЕШНО СОЗДАНА ИЛИ УЖЕ ЕСТЬ")
+                await conn.execute(query_notion)
+                print("ТАБЛИЦА УВЕДОМЛЕНИЙ УСПЕШНО СОЗДАНА ИЛИ УЖЕ ЕСТЬ")
+
 
         except Exception as e:
             logging.error(f'ОШИБКА СОЗДАНИЯ ТАБЛИЦЫ {e}', exc_info=True)
@@ -101,6 +117,67 @@ class CreateRequest:
 
         except Exception as e:
             logging.error(f'ОШИБКА ЗАПРОСА НА ПРОЧТЕНИЕ {e}', exc_info=True)
+
+
+    @staticmethod
+    async def get_single_note(note_id: int):
+        """ """
+
+        try:
+            async with connection.db_pool.acquire() as conn:
+                query = """
+                    SELECT note_text
+                    FROM public.notes_tg_bot  
+                    WHERE id = $1;
+                """
+                row = await conn.fetchrow(query, note_id)
+                if row: return row['note_text']
+
+
+        except Exception as e:
+            logging.error(f'ОШИБКА ОПЕРАЦИИ ПО ФИЛЬТАЦИИ id {e}', exc_info=True)
+
+
+    @staticmethod
+    async def set_notion_notes(user_id:int, note_id:int, remind_at):
+        """Добавдение времени уведомления"""
+
+        try:
+            async with connection.db_pool.acquire() as conn:
+
+                query = """
+                    INSERT INTO public.notion_tg_bot(user_id, note_id, remind_at)
+                    VALUES($1, $2, $3)
+                """
+
+                await conn.execute(query, user_id, note_id, remind_at)
+
+        except Exception as e:
+            logging.error(f'ОШИБКА ДОБАВЛЕНИЯ УВЕДОМЛЕНИЯ {e}', exc_info=True)
+
+
+
+    @staticmethod
+    async def get_active_reminders():
+
+        try:
+            async with connection.db_pool.acquire() as conn:
+                query = """
+                    SELECT public.notion_tg_bot.user_id, public.notes_tg_bot.note_text
+                    FROM public.notion_tg_bot
+                    INNER JOIN public.notion_tg_bot ON public.notion_tg_bot.note_id = public.notion_tg_bot.id
+                    WHERE public.notes_tg_bot.remind_at <= NOW();
+                """
+                rows = await conn.fetch(query)
+
+                query_delete = """
+                    DELETE FROM public.notion_tg_bot WHERE remind_at <= NOW();
+                """
+                await conn.execute(query_delete)
+
+                return rows
+        except Exception as e:
+            logging.error(f'ОШИБКА ОБРАБОТКИ ВРЕМЕНИ {e}', exc_info=True)
 
 
 
