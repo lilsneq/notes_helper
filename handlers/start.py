@@ -37,3 +37,35 @@ async def process_back_click(callback: CallbackQuery) -> None:
         reply_markup=get_main_menu()
     )
     await callback.answer()
+
+
+@router.callback_query(F.data == 'menu_notion')
+async def show_all_reminders(callback: CallbackQuery) -> None:
+    user_id = callback.from_user.id
+    reminders = await CreateRequest.get_future_reminders(user_id)
+    if not reminders:
+        await callback.message.edit_text(text='У вас пока нет активных напоминаний', reply_markup=back_to_main_menu())
+        await callback.answer()
+        return
+
+    text = "🔔 Ваши активные напоминания:\n\n"
+
+    for index, r in enumerate(reminders, 1):
+        time_str = r['remind_at'].strftime('%H:%M (%d.%m)')
+        text += f"{index}. [{time_str}] {r['note_text'][:20]}...\n"
+
+    await callback.message.edit_text(text=text, reply_markup=back_to_main_menu())
+    await callback.answer()
+
+
+
+
+
+
+
+
+
+
+
+
+

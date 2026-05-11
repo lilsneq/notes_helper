@@ -23,7 +23,7 @@ from database.connection import conn_bd_pool, close_bd_pool
 from database.requests import CreateRequest
 
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from services.scheduler import setup_scheduler
 
 
 load_dotenv()
@@ -46,6 +46,7 @@ async def main() -> None:
     dp.include_routers(start_router, create_notes_router, show_notes_router, settings_notes_router)
 
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    setup_scheduler(bot)
 
     try:
         print('Бот успешно запущен и готов к работе')

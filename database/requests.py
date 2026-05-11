@@ -1,12 +1,10 @@
 # ЗПРОСЫ НА ПОЛУЧЕНИЕ И ТВЕТЫ В БД
-from urllib.parse import uses_relative
 
 # ИМПОРТЫ
 import asyncpg
 import logging
 import sys
 
-from pydantic import with_config
 
 from database import connection
 
@@ -106,14 +104,14 @@ class CreateRequest:
         try:
             async with connection.db_pool.acquire() as conn:
                 query = """
-                    SELECT note_text
+                    SELECT id, note_text
                     FROM public.notes_tg_bot  
                     WHERE user_id = $1
                     ORDER BY created_at;  
                 """
 
                 rows = await conn.fetch(query, username_id)
-                return [row['note_text'] for row in rows]
+                return rows
 
         except Exception as e:
             logging.error(f'ОШИБКА ЗАПРОСА НА ПРОЧТЕНИЕ {e}', exc_info=True)
@@ -156,7 +154,6 @@ class CreateRequest:
             logging.error(f'ОШИБКА ДОБАВЛЕНИЯ УВЕДОМЛЕНИЯ {e}', exc_info=True)
 
 
-
     @staticmethod
     async def get_active_reminders():
 
@@ -165,9 +162,10 @@ class CreateRequest:
                 query = """
                     SELECT public.notion_tg_bot.user_id, public.notes_tg_bot.note_text
                     FROM public.notion_tg_bot
-                    INNER JOIN public.notion_tg_bot ON public.notion_tg_bot.note_id = public.notion_tg_bot.id
-                    WHERE public.notes_tg_bot.remind_at <= NOW();
+                    INNER JOIN public.notes_tg_bot ON public.notion_tg_bot.note_id = public.notes_tg_bot.id
+                    WHERE public.notion_tg_bot.remind_at <= NOW();
                 """
+
                 rows = await conn.fetch(query)
 
                 query_delete = """
@@ -180,4 +178,20 @@ class CreateRequest:
             logging.error(f'ОШИБКА ОБРАБОТКИ ВРЕМЕНИ {e}', exc_info=True)
 
 
+    @staticmethod
+    async def get_future_reminders(user_id:int):
+        try:
+            async with connection.db_pool.acquire() as conn:
+                query = """
+                    SELECT public.notes_tg_bot.note_text, public.notion_tg_bot.remind_at
+                    FROM public.notion_tg_bot
+                    INNER JOIN public.notes_tg_bot ON public.notion_tg_bot.note_id = public.notes_tg_bot.id
+                    WHERE public.notion_tg_bot.user_id = $1 AND public.notion_tg_bot.remind_at > NOW()
+                    ORDER BY public.notion_tg_bot.remind_at;
+                """
+                rows = await conn.fetch(query, user_id)
+                return rows
+        except Exception as e:
+            logging.error(f'ОШИБКА ПОЛУЧЕНИЯ БУДУЩИХ НАПОМИНАНИЙ {e}', exc_info=True)
+            return []
 
