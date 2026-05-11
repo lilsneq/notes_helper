@@ -59,11 +59,7 @@ pip install -r requirements.txt
 Обязательно создайте файл **`.env`** в корневом каталоге и укажите ваши валидные данные подключения:
 ```env
 TOKENTG=ваш_актуальный_токен_от_botfather
-PGUSER=имя_пользователя_postgres
-PGPASSWORD=ваш_пароль_от_бд
-PGDATABASE=имя_базы_данных
-PGHOST=localhost
-PGPORT=5432
+TOKEN-BD=ваш_актуальный_токен_от_базыданных
 ```
 
 ### 3. Старт бота
